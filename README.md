@@ -11,6 +11,35 @@ A lightweight solution to force Right-to-Left (RTL) layout direction for web app
 - CSS direction control
 - Font family optimization for RTL languages
 
+## Manual Installation Guide 🛠️ (Chrome/Edge/Brave)
+
+### Step 1: Download & Extract
+1. Download the ZIP file from [Releases page]()
+2. Extract the ZIP to a folder you'll remember  
+   *(Right-click → "Extract All" on Windows)*
+
+### Step 2: Enable Developer Mode
+1. Go to `chrome://extensions`
+2. Toggle **Developer Mode** (top-right corner) → ON 🟢
+
+### Step 3: Load Extension
+1. Click **"Load Unpacked"** button
+2. Select the extracted folder (not the ZIP file!)
+3. Done! Extension is now active 🎉
+
+---
+
+#### 💡 Pro Tips:
+- Keep the folder in permanent location
+- Chrome will remember the extension between restarts
+- To update: Delete old version → Reload new folder
+
+#### 🚨 Troubleshooting:
+If you get "Manifest missing" error:
+1. Ensure you extracted the ZIP file
+2. Verify folder contains `manifest.json`
+3. Try re-downloading if files are corrupted
+
 ## Contributing 🤝
 We welcome contributions! Please:
 
