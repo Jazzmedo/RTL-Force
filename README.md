@@ -14,7 +14,7 @@ A lightweight solution to force Right-to-Left (RTL) layout direction for web app
 ## Manual Installation Guide 🛠️ (Chrome/Edge/Brave)
 
 ### Step 1: Download & Extract
-1. Download the ZIP file from [Releases page]()
+1. Download the ZIP file from [Releases page](https://github.com/Jazzmedo/RTL-Force/releases)
 2. Extract the ZIP to a folder you'll remember  
    *(Right-click → "Extract All" on Windows)*
 
