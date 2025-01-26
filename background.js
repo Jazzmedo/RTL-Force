@@ -1,9 +1,21 @@
 chrome.runtime.onInstalled.addListener(() => {
-    chrome.storage.sync.set({ mode: 'blacklist', blacklist: [], whitelist: [] });
+    chrome.storage.sync.set({ mode: 'blacklist', blacklist: [], whitelist: [], enabled: true });
 });
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     if (changeInfo.status === 'complete' && tab.url) {
+        checkAndApplyRTL(tabId, changeInfo, tab);
+    }
+});
+
+function checkAndApplyRTL(tabId, changeInfo, tab) {
+    // First check if extension is enabled
+    chrome.storage.sync.get(['enabled'], function(result) {
+        if (result.enabled === false) {
+            return; // Extension is disabled, don't do anything
+        }
+
+        // Continue with existing RTL logic
         chrome.storage.sync.get(['mode', 'blacklist', 'whitelist'], (data) => {
             const { mode, blacklist, whitelist } = data;
             const url = new URL(tab.url);
@@ -19,5 +31,5 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
                 });
             }
         });
-    }
-});
+    });
+}

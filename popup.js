@@ -6,15 +6,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const statusElement = document.getElementById('status');
     const themeToggle = document.getElementById('theme-toggle');
     const modeInputs = document.querySelectorAll('input[name="mode"]');
+    const extensionToggle = document.getElementById('extension-toggle');
+    const controlsContainer = document.getElementById('controls');
 
     // Load saved settings
-    chrome.storage.sync.get(['mode', 'blacklist', 'whitelist', 'theme'], (data) => {
+    chrome.storage.sync.get(['mode', 'blacklist', 'whitelist', 'theme', 'enabled'], (data) => {
         document.querySelector(`input[name="mode"][value="${data.mode}"]`).checked = true;
         domainList.value = data[data.mode].join('\n');
         if (data.theme === 'dark') {
             document.documentElement.setAttribute('data-theme', 'dark');
         }
+        extensionToggle.checked = data.enabled !== false; // Default to true if not set
         updateButtonText();
+        controlsContainer.classList.toggle('disabled', !data.enabled);
     });
 
     // Add or remove current domain from the list
@@ -94,6 +98,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         document.documentElement.setAttribute('data-theme', newTheme);
         chrome.storage.sync.set({ theme: newTheme });
+    });
+
+    // Handle extension toggle changes
+    extensionToggle.addEventListener('change', () => {
+        const enabled = extensionToggle.checked;
+        chrome.storage.sync.set({ enabled: enabled }, () => {
+            showStatus(`Extension ${enabled ? 'enabled' : 'disabled'}`);
+            controlsContainer.classList.toggle('disabled', !enabled);
+        });
     });
 
     function showStatus(message) {

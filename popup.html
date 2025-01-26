@@ -99,7 +99,6 @@
         .mode-selector {
             display: flex;
             gap: 30px;
-            margin-bottom: 20px;
             padding: 10px;
             background: var(--mode-bg);
             border-radius: 4px;
@@ -115,7 +114,6 @@
         }
 
         .list {
-            margin-top: 20px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -132,7 +130,7 @@
             color: var(--text-color);
             background: var(--container-bg);
             width: 100%;
-            height: 200px;
+            height: 150px;
             padding: 10px;
             border: 1px solid var(--border-color);
             border-radius: 4px;
@@ -155,6 +153,75 @@
             font-size: 0.9em;
             height: 20px;
         }
+
+        .toggle-switch {
+            display: flex;
+            align-items: center;
+            justify-content: space-evenly;
+            gap: 10px;
+            margin-bottom: 20px;
+            padding: 10px;
+            background: var(--mode-bg);
+            border-radius: 4px;
+            span{
+                font-size: 16px;
+            }
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 24px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: var(--button-bg);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+
+        .controls-container {
+            transition: filter 0.3s ease;
+        }
+
+        .controls-container.disabled {
+            filter: blur(2px);
+            pointer-events: none;
+            opacity: 0.7;
+        }
     </style>
 </head>
 
@@ -164,23 +231,32 @@
             <h1>Force RTL</h1>
             <button class="theme-toggle" id="theme-toggle">Toggle Theme</button>
         </div>
-        <div class="buttons-container">
-            <button id="add-to-list">Add Current Site</button>
-            <button id="save-list">Save List</button>
-        </div>
-        <div class="mode-selector">
-            <label>
-                <input type="radio" name="mode" value="blacklist" checked>
-                Blacklist
-            </label>
-            <label>
-                <input type="radio" name="mode" value="whitelist">
-                Whitelist
+        <div class="toggle-switch">
+            <span>Enable Extension</span>
+            <label class="switch">
+                <input type="checkbox" id="extension-toggle">
+                <span class="slider"></span>
             </label>
         </div>
-        <div class="list">
-            <h2 style="color: var(--text-color);">Domains List</h2>
-            <textarea id="domain-list" placeholder="One domain per line"></textarea>
+        <div class="controls-container" id="controls">
+            <div class="buttons-container">
+                <button id="add-to-list">Add Current Site</button>
+                <button id="save-list">Save List</button>
+            </div>
+            <div class="mode-selector">
+                <label>
+                    <input type="radio" name="mode" value="blacklist" checked>
+                    Blacklist
+                </label>
+                <label>
+                    <input type="radio" name="mode" value="whitelist">
+                    Whitelist
+                </label>
+            </div>
+            <div class="list">
+                <h2 style="color: var(--text-color);">Domains List</h2>
+                <textarea id="domain-list" placeholder="One domain per line"></textarea>
+            </div>
         </div>
         <div class="status" id="status"></div>
     </div>
