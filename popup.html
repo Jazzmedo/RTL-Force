@@ -14,6 +14,9 @@
             --button-text: white;
             --save-button-bg: #2196F3;
             --mode-bg: #f8f8f8;
+            --sb-bg: #f1f1f1;
+            --sb-fg: #c1c1c1;
+            --sb-fga: #a8a8a8;
         }
 
         [data-theme="dark"] {
@@ -25,10 +28,57 @@
             --button-text: white;
             --save-button-bg: #1976D2;
             --mode-bg: #363636;
+            --sb-bg: #3e3e3e;
+            --sb-fg: #181818;
+            --sb-fga: #222222;
+        }
+
+        /* Firefox (uncomment to work in Firefox, although other properties will not work!)  */
+        /** {
+  scrollbar-width: thin;
+  scrollbar-color: #C1C1C1 #F1F1F1;
+}*/
+
+        /* Chrome, Edge and Safari */
+        *::-webkit-scrollbar {
+            height: 8px;
+            width: 8px;
+        }
+
+        *::-webkit-scrollbar-track {
+            border-radius: 3px;
+            background-color: var(--sb-bg);
+        }
+
+        *::-webkit-scrollbar-track:hover {
+            background-color: var(--sb-bg);
+        }
+
+        *::-webkit-scrollbar-track:active {
+            background-color: var(--sb-bg);
+        }
+
+        *::-webkit-scrollbar-thumb {
+            border-radius: 3px;
+            background-color: var(--sb-fg);
+            cursor: default;
+        }
+        
+        *::-webkit-scrollbar-thumb:hover {
+            background-color: var(--sb-fga);
+            cursor: default;
+        }
+
+        *::-webkit-scrollbar-thumb:active {
+            background-color: var(--sb-fga);
         }
 
         * {
             font-family: 'ADLaM Display', sans-serif;
+        }
+
+        textarea:focus{
+            outline: none;
         }
 
         body {
@@ -140,12 +190,6 @@
             overflow: auto;
         }
 
-        #domain-list:focus {
-            outline: none;
-            border-color: #2196F3;
-            box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.1);
-        }
-
         .status {
             margin-top: 10px;
             text-align: center;
@@ -163,7 +207,8 @@
             padding: 10px;
             background: var(--mode-bg);
             border-radius: 4px;
-            span{
+
+            span {
                 font-size: 16px;
             }
         }
@@ -205,11 +250,11 @@
             border-radius: 50%;
         }
 
-        input:checked + .slider {
+        input:checked+.slider {
             background-color: var(--button-bg);
         }
 
-        input:checked + .slider:before {
+        input:checked+.slider:before {
             transform: translateX(26px);
         }
 
@@ -229,7 +274,9 @@
     <div class="container">
         <div class="header">
             <h1>Force RTL</h1>
-            <button class="theme-toggle" id="theme-toggle">Toggle Theme</button>
+            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/2c/Red_triangle.svg/1152px-Red_triangle.svg.png" width="34.6" height="30">
+            <button class="theme-toggle" id="theme-toggle">Toggle<br>
+                Theme</button>
         </div>
         <div class="toggle-switch">
             <span>Enable Extension</span>
@@ -254,7 +301,7 @@
                 </label>
             </div>
             <div class="list">
-                <h2 style="color: var(--text-color);">Domains List</h2>
+                <h2 style="color: var(--text-color);font-weight: normal;">Domains List</h2>
                 <textarea id="domain-list" placeholder="One domain per line"></textarea>
             </div>
         </div>
