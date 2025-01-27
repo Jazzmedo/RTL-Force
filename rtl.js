@@ -1,40 +1,144 @@
+const TEXT_DIRECTION_CACHE = new WeakMap();
+const RTL_THRESHOLD = 0.5; // If more than 50% Arabic words, switch to RTL
+
+function countWords(text) {
+    if (!text.trim()) return { arabic: 0, other: 0, total: 0 };
+
+    const arabicPattern = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
+    const latinPattern = /[a-zA-Z]/;
+    
+    const words = text.split(/\s+/);
+    let arabicCount = 0;
+    let latinCount = 0;
+    let currentArabicSequence = 0;
+    let currentLatinSequence = 0;
+    let maxArabicSequence = 0;
+    let maxLatinSequence = 0;
+
+    words.forEach(word => {
+        if (!word.trim()) return;
+        
+        // Check first character of the word to determine primary script
+        const firstChar = word[0];
+        const isArabicWord = arabicPattern.test(firstChar);
+        const isLatinWord = latinPattern.test(firstChar);
+
+        if (isArabicWord) {
+            arabicCount++;
+            currentArabicSequence++;
+            currentLatinSequence = 0;
+            maxArabicSequence = Math.max(maxArabicSequence, currentArabicSequence);
+        } else if (isLatinWord) {
+            latinCount++;
+            currentLatinSequence++;
+            currentArabicSequence = 0;
+            maxLatinSequence = Math.max(maxLatinSequence, currentLatinSequence);
+        }
+    });
+
+    return {
+        arabic: arabicCount,
+        other: latinCount,
+        total: words.length,
+        maxArabicSequence,
+        maxLatinSequence
+    };
+}
+
+function determineDirection(element) {
+    if (TEXT_DIRECTION_CACHE.has(element)) {
+        return TEXT_DIRECTION_CACHE.get(element);
+    }
+
+    const walker = document.createTreeWalker(
+        element,
+        NodeFilter.SHOW_TEXT,
+        null,
+        false
+    );
+
+    let allText = '';
+    let node;
+    while (node = walker.nextNode()) {
+        allText += node.textContent + ' ';
+    }
+
+    const { arabic, other, total, maxArabicSequence, maxLatinSequence } = countWords(allText);
+    
+    if (total === 0) return null;
+
+    // Use a combination of ratio and sequence length to determine direction
+    const arabicRatio = arabic / total;
+    
+    // If we have a long sequence of Latin text, prefer LTR
+    if (maxLatinSequence > 3) {
+        return null;
+    }
+    
+    // If we have a significant Arabic sequence and ratio, use RTL
+    const direction = (maxArabicSequence >= 2 && arabicRatio >= 0.3) ? 'rtl' : null;
+
+    TEXT_DIRECTION_CACHE.set(element, direction);
+    return direction;
+}
+
 function updateTextDirections() {
-    document.querySelectorAll("*").forEach((element) => {
-        // Check if the element contains Arabic characters using Unicode range
-        const arabicRegex =
-            /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
+    // Find all text-containing elements
+    const textElements = document.querySelectorAll('*');
+    const processedParents = new Set();
 
-        // Check only direct text content of the element (not nested elements)
-        const textNodes = Array.from(element.childNodes).filter(
-            (node) => node.nodeType === Node.TEXT_NODE
-        );
-
-        const hasArabic = textNodes.some((node) =>
-            arabicRegex.test(node.textContent)
-        );
-
-        if (hasArabic && element.parentElement) {
-            element.parentElement.setAttribute("dir", "rtl");
+    textElements.forEach(element => {
+        // Skip elements that don't contain text
+        if (!element.textContent.trim()) return;
+        
+        // Find the nearest block-level parent
+        let parent = element.parentElement;
+        while (parent && parent !== document.body) {
+            const display = window.getComputedStyle(parent).display;
+            if (display.includes('block') || display === 'flex' || display === 'grid') {
+                if (!processedParents.has(parent)) {
+                    processedParents.add(parent);
+                    const direction = determineDirection(parent);
+                    
+                    if (direction === 'rtl') {
+                        parent.setAttribute('dir', 'rtl');
+                    } else {
+                        parent.removeAttribute('dir');
+                    }
+                }
+                break;
+            }
+            parent = parent.parentElement;
         }
     });
 }
 
-// Run on initial load
+// Initial update
 updateTextDirections();
 
-// Run again whenever new content is added
-// (e.g., after AJAX calls or dynamic element creation)
-const observer = new MutationObserver((mutationsList) => {
-    for (const mutation of mutationsList) {
-        if (mutation.type === "childList" || mutation.type === "characterData") {
-            updateTextDirections();
-            break;
-        }
+// Observe changes
+const observer = new MutationObserver((mutations) => {
+    const shouldUpdate = mutations.some(mutation => 
+        mutation.type === 'childList' || 
+        mutation.type === 'characterData'
+    );
+
+    if (shouldUpdate) {
+        // Clear cache for modified elements
+        mutations.forEach(mutation => {
+            if (mutation.target) {
+                TEXT_DIRECTION_CACHE.delete(mutation.target);
+            }
+        });
+        updateTextDirections();
     }
 });
 
+// Update the observer configuration
 observer.observe(document.body, {
     childList: true,
     subtree: true,
     characterData: true,
+    attributes: true,
+    attributeFilter: ['dir']
 });
