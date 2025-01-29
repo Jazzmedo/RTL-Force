@@ -50,17 +50,21 @@ function determineDirection(element) {
         return TEXT_DIRECTION_CACHE.get(element);
     }
 
-    const walker = document.createTreeWalker(
-        element,
-        NodeFilter.SHOW_TEXT,
-        null,
-        false
-    );
-
     let allText = '';
-    let node;
-    while (node = walker.nextNode()) {
-        allText += node.textContent + ' ';
+    if (element.tagName.toLowerCase() === 'ul' || element.tagName.toLowerCase() === 'ol') {
+        allText = element.textContent;
+    } else {
+        const walker = document.createTreeWalker(
+            element,
+            NodeFilter.SHOW_TEXT,
+            null,
+            false
+        );
+
+        let node;
+        while (node = walker.nextNode()) {
+            allText += node.textContent + ' ';
+        }
     }
 
     const { arabic, other, total, maxArabicSequence, maxLatinSequence } = countWords(allText);
@@ -95,20 +99,43 @@ function updateTextDirections() {
         let parent = element.parentElement;
         while (parent && parent !== document.body) {
             const display = window.getComputedStyle(parent).display;
-            if (display.includes('block') || display === 'flex' || display === 'grid') {
+            if (display.includes('block') || display === 'flex' || display === 'grid' || parent.tagName.toLowerCase() === 'ul' || parent.tagName.toLowerCase() === 'ol') {
                 if (!processedParents.has(parent)) {
                     processedParents.add(parent);
                     const direction = determineDirection(parent);
                     
                     if (direction === 'rtl') {
                         parent.setAttribute('dir', 'rtl');
+                        // Handle pre tags inside the parent
+                        const preTags = parent.querySelectorAll('pre');
+                        preTags.forEach(pre => {
+                            pre.setAttribute('dir', 'ltr');
+                        });
                     } else {
                         parent.removeAttribute('dir');
+                        // Handle pre tags inside the parent
+                        const preTags = parent.querySelectorAll('pre');
+                        preTags.forEach(pre => {
+                            pre.removeAttribute('dir');
+                        });
                     }
                 }
                 break;
             }
             parent = parent.parentElement;
+        }
+    });
+
+    // Handle pre tags separately to ensure they are set correctly
+    const preTags = document.querySelectorAll('pre');
+    preTags.forEach(pre => {
+        let ancestor = pre.parentElement;
+        while (ancestor && ancestor !== document.body) {
+            if (ancestor.getAttribute('dir') === 'rtl') {
+                pre.setAttribute('dir', 'ltr');
+                break;
+            }
+            ancestor = ancestor.parentElement;
         }
     });
 }
