@@ -4,11 +4,11 @@ chrome.runtime.onInstalled.addListener(() => {
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     if (changeInfo.status === 'complete' && tab.url) {
-        checkAndApplyRTL(tabId, changeInfo, tab);
+        checkAndApplyRTL(tabId, tab);
     }
 });
 
-function checkAndApplyRTL(tabId, changeInfo, tab) {
+function checkAndApplyRTL(tabId, tab) {
     // First check if extension is enabled
     chrome.storage.sync.get(['enabled'], function(result) {
         if (result.enabled === false) {
@@ -25,10 +25,7 @@ function checkAndApplyRTL(tabId, changeInfo, tab) {
                 (mode === 'blacklist' && !blacklist.includes(hostname)) ||
                 (mode === 'whitelist' && whitelist.includes(hostname))
             ) {
-                chrome.scripting.executeScript({
-                    target: { tabId: tabId },
-                    files: ['rtl.js']
-                });
+                chrome.tabs.executeScript(tabId, { file: 'content.js' });
             }
         });
     });
