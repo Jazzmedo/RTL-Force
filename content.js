@@ -1,4 +1,6 @@
 var TEXT_DIRECTION_CACHE = new WeakMap();
+let isEnabled = true;
+let observer;
 
 function countWords(text) {
     if (!text.trim()) return { arabic: 0, other: 0, total: 0 };
@@ -17,7 +19,6 @@ function countWords(text) {
     words.forEach(word => {
         if (!word.trim()) return;
         
-        // Check first character of the word to determine primary script
         const firstChar = word[0];
         const isArabicWord = arabicPattern.test(firstChar);
         const isLatinWord = latinPattern.test(firstChar);
@@ -70,15 +71,7 @@ function determineDirection(element) {
     
     if (total === 0) return null;
 
-    // Use a combination of ratio and sequence length to determine direction
     const arabicRatio = arabic / total;
-    
-    // If we have a long sequence of Latin text, prefer LTR
-    if (maxLatinSequence > 3) {
-        return null;
-    }
-    
-    // If we have a significant Arabic sequence and ratio, use RTL
     const direction = (maxArabicSequence >= 2 && arabicRatio >= 0.3) ? 'rtl' : null;
 
     TEXT_DIRECTION_CACHE.set(element, direction);
@@ -86,15 +79,14 @@ function determineDirection(element) {
 }
 
 function updateTextDirections() {
-    // Find all text-containing elements
+    if (!isEnabled) return;
+
     const textElements = document.querySelectorAll('*');
     const processedParents = new Set();
 
     textElements.forEach(element => {
-        // Skip elements that don't contain text
         if (!element.textContent.trim()) return;
         
-        // Find the nearest block-level parent
         let parent = element.parentElement;
         while (parent && parent !== document.body) {
             const display = window.getComputedStyle(parent).display;
@@ -105,14 +97,12 @@ function updateTextDirections() {
                     
                     if (direction === 'rtl') {
                         parent.setAttribute('dir', 'rtl');
-                        // Handle pre tags inside the parent
                         const preTags = parent.querySelectorAll('pre');
                         preTags.forEach(pre => {
                             pre.setAttribute('dir', 'ltr');
                         });
                     } else {
                         parent.removeAttribute('dir');
-                        // Handle pre tags inside the parent
                         const preTags = parent.querySelectorAll('pre');
                         preTags.forEach(pre => {
                             pre.removeAttribute('dir');
@@ -125,7 +115,6 @@ function updateTextDirections() {
         }
     });
 
-    // Handle pre tags separately to ensure they are set correctly
     const preTags = document.querySelectorAll('pre');
     preTags.forEach(pre => {
         let ancestor = pre.parentElement;
@@ -139,32 +128,57 @@ function updateTextDirections() {
     });
 }
 
-// Initial update
-updateTextDirections();
+function initObserver() {
+    observer = new MutationObserver((mutations) => {
+        const shouldUpdate = mutations.some(mutation => 
+            mutation.type === 'childList' || 
+            mutation.type === 'characterData'
+        );
 
-// Observe changes
-const observer = new MutationObserver((mutations) => {
-    const shouldUpdate = mutations.some(mutation => 
-        mutation.type === 'childList' || 
-        mutation.type === 'characterData'
-    );
+        if (shouldUpdate) {
+            mutations.forEach(mutation => {
+                if (mutation.target) {
+                    TEXT_DIRECTION_CACHE.delete(mutation.target);
+                }
+            });
+            updateTextDirections();
+        }
+    });
 
-    if (shouldUpdate) {
-        // Clear cache for modified elements
-        mutations.forEach(mutation => {
-            if (mutation.target) {
-                TEXT_DIRECTION_CACHE.delete(mutation.target);
-            }
-        });
-        updateTextDirections();
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+        attributes: true,
+        attributeFilter: ['dir']
+    });
+}
+
+function cleanupRTL() {
+    document.querySelectorAll('[dir="rtl"]').forEach(el => el.removeAttribute('dir'));
+    document.querySelectorAll('[dir="ltr"]').forEach(el => el.removeAttribute('dir'));
+    TEXT_DIRECTION_CACHE = new WeakMap();
+}
+
+// Extension state management
+chrome.runtime.onMessage.addListener((request) => {
+    if (request.type === 'EXTENSION_STATE') {
+        isEnabled = request.enabled;
+        if (!isEnabled) {
+            cleanupRTL();
+            if (observer) observer.disconnect();
+        } else {
+            updateTextDirections();
+            initObserver();
+        }
     }
 });
 
-// Update the observer configuration
-observer.observe(document.body, {
-    childList: true,
-    subtree: true,
-    characterData: true,
-    attributes: true,
-    attributeFilter: ['dir']
+// Initial setup
+chrome.storage.sync.get(['enabled'], (result) => {
+    isEnabled = result.enabled !== false;
+    if (isEnabled) {
+        updateTextDirections();
+        initObserver();
+    }
 });

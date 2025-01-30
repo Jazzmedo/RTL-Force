@@ -5,23 +5,32 @@ document.addEventListener('DOMContentLoaded', () => {
     const modeRadios = document.querySelectorAll('input[name="mode"]');
     const statusElement = document.getElementById('status');
     const themeToggle = document.getElementById('theme-toggle');
-    const modeInputs = document.querySelectorAll('input[name="mode"]');
     const extensionToggle = document.getElementById('extension-toggle');
     const controlsContainer = document.getElementById('controls');
 
-    // Load saved settings
+    // Initialize UI with stored settings
     chrome.storage.sync.get(['mode', 'blacklist', 'whitelist', 'theme', 'enabled'], (data) => {
-        document.querySelector(`input[name="mode"][value="${data.mode}"]`).checked = true;
-        domainList.value = data[data.mode].join('\n');
+        // Set mode selection
+        document.querySelector(`input[name="mode"][value="${data.mode || 'blacklist'}"]`).checked = true;
+        
+        // Set domain list
+        const currentMode = data.mode || 'blacklist';
+        domainList.value = (data[currentMode] || []).join('\n');
+        
+        // Set theme
         if (data.theme === 'dark') {
             document.documentElement.setAttribute('data-theme', 'dark');
         }
-        extensionToggle.checked = data.enabled !== false; // Default to true if not set
+        
+        // Set extension toggle state
+        extensionToggle.checked = data.enabled !== false;
+        controlsContainer.classList.toggle('disabled', !extensionToggle.checked);
+        
+        // Update button text based on current site
         updateButtonText();
-        controlsContainer.classList.toggle('disabled', !data.enabled);
     });
 
-    // Add or remove current domain from the list
+    // Add/Remove current domain
     addToListButton.addEventListener('click', () => {
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
             const url = new URL(tabs[0].url);
@@ -32,28 +41,22 @@ document.addEventListener('DOMContentLoaded', () => {
             if (currentDomains.includes(domain)) {
                 currentDomains = currentDomains.filter(d => d !== domain);
                 showStatus('Domain removed!');
-                addToListButton.textContent = 'Add Current Site';
-                addToListButton.style.backgroundColor = 'var(--button-bg)';
             } else {
                 currentDomains.push(domain);
                 showStatus('Domain added!');
-                addToListButton.textContent = 'Remove Current Site';
-                addToListButton.style.backgroundColor = '#dc3545';
             }
 
             domainList.value = currentDomains.join('\n');
-
-            // Save the updated list immediately
+            updateButtonText();
+            
+            // Save immediately
             chrome.storage.sync.set({
-                [mode]: currentDomains,
-                mode: mode
-            }, () => {
-                showStatus('List updated successfully!\nRefreash the page to see the changes.');
-            });
+                [mode]: currentDomains
+            }, () => broadcastState());
         });
     });
 
-    // Save the list
+    // Save list manually
     saveListButton.addEventListener('click', () => {
         const mode = document.querySelector('input[name="mode"]:checked').value;
         const domains = domainList.value.split('\n').filter(Boolean);
@@ -62,80 +65,88 @@ document.addEventListener('DOMContentLoaded', () => {
             [mode]: domains,
             mode: mode
         }, () => {
-            showStatus('List saved successfully!\nRefreash the page to see the changes.');
+            showStatus('List saved!');
+            broadcastState();
         });
     });
 
-    // Update mode
+    // Handle mode changes
     modeRadios.forEach(radio => {
-        radio.addEventListener('change', (event) => {
-            const mode = event.target.value;
+        radio.addEventListener('change', (e) => {
+            const mode = e.target.value;
             chrome.storage.sync.get([mode], (data) => {
                 domainList.value = (data[mode] || []).join('\n');
                 updateButtonText();
             });
+            chrome.storage.sync.set({ mode: mode }, () => broadcastState());
         });
     });
 
-    // Add event listeners for mode selection
-    modeInputs.forEach(input => {
-        input.addEventListener('change', (e) => {
-            saveMode(e.target.value);
-        });
-    });
-
-    // When the popup loads, get the saved mode
-    chrome.storage.sync.get(['mode'], (result) => {
-        if (result.mode) {
-            document.querySelector(`input[value="${result.mode}"]`).checked = true;
-        }
-    });
-
-    // Theme handling
+    // Theme toggle
     themeToggle.addEventListener('click', () => {
         const currentTheme = document.documentElement.getAttribute('data-theme');
         const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-
         document.documentElement.setAttribute('data-theme', newTheme);
         chrome.storage.sync.set({ theme: newTheme });
     });
 
-    // Handle extension toggle changes
+    // Extension enable/disable toggle
     extensionToggle.addEventListener('change', () => {
         const enabled = extensionToggle.checked;
         chrome.storage.sync.set({ enabled: enabled }, () => {
             showStatus(`Extension ${enabled ? 'enabled' : 'disabled'}`);
             controlsContainer.classList.toggle('disabled', !enabled);
+            broadcastState();
         });
     });
 
-    function showStatus(message) {
+    // Status message helper
+    function showStatus(message, duration = 2000) {
         statusElement.textContent = message;
         setTimeout(() => {
             statusElement.textContent = '';
-        }, 2000);
+        }, duration);
     }
 
+    // Update button text based on current site
     function updateButtonText() {
         chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            if (!tabs[0]?.url) return;
+            
             const url = new URL(tabs[0].url);
             const domain = url.hostname;
             const currentDomains = domainList.value.split('\n').filter(Boolean);
+            const isInList = currentDomains.includes(domain);
 
-            if (currentDomains.includes(domain)) {
-                addToListButton.textContent = 'Remove Current Site';
-                addToListButton.style.backgroundColor = '#dc3545';
-            } else {
-                addToListButton.textContent = 'Add Current Site';
-                addToListButton.style.backgroundColor = 'var(--button-bg)';
-            }
+            addToListButton.textContent = isInList ? 'Remove Current Site' : 'Add Current Site';
+            addToListButton.style.backgroundColor = isInList ? '#dc3545' : 'var(--button-bg)';
         });
     }
 
-    // Add this function to save the mode
-    function saveMode(mode) {
-        chrome.storage.sync.set({ mode: mode }, () => {
-            showStatus('Mode saved!');
+    // Broadcast state changes to all tabs
+    function broadcastState() {
+        chrome.storage.sync.get(['enabled', 'mode', 'blacklist', 'whitelist'], (data) => {
+            chrome.tabs.query({}, (tabs) => {
+                tabs.forEach(tab => {
+                    if (tab.id) {
+                        chrome.tabs.sendMessage(tab.id, {
+                            type: 'STATE_UPDATE',
+                            enabled: data.enabled,
+                            mode: data.mode,
+                            lists: {
+                                blacklist: data.blacklist || [],
+                                whitelist: data.whitelist || []
+                            }
+                        });
+                    }
+                });
+            });
         });
     }
+
+    // Real-time updates for current tab
+    chrome.tabs.onActivated.addListener(updateButtonText);
+    chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+        if (changeInfo.url) updateButtonText();
+    });
 });
