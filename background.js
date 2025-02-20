@@ -8,11 +8,19 @@ chrome.runtime.onInstalled.addListener(() => {
     });
 });
 
+// Keep track of RTL state per tab
+const tabStates = new Map();
+
 // Listen for tab updates
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     if (changeInfo.status === 'complete' && tab.url) {
         checkAndApplyRTL(tabId, tab);
     }
+});
+
+// Clean up tab state when tab is closed
+chrome.tabs.onRemoved.addListener((tabId) => {
+    tabStates.delete(tabId);
 });
 
 // Handle extension state changes
@@ -28,7 +36,10 @@ chrome.storage.onChanged.addListener((changes) => {
 
 async function checkAndApplyRTL(tabId, tab) {
     const { enabled } = await chrome.storage.sync.get('enabled');
-    if (!enabled) return;
+    if (!enabled) {
+        sendStateToTab(tabId, false);
+        return;
+    }
 
     const { mode, blacklist, whitelist } = await chrome.storage.sync.get([
         'mode',
@@ -43,13 +54,20 @@ async function checkAndApplyRTL(tabId, tab) {
         (mode === 'blacklist' && !blacklist.includes(hostname)) ||
         (mode === 'whitelist' && whitelist.includes(hostname));
 
+    // Store the state for this tab
+    tabStates.set(tabId, shouldApply);
+
     if (shouldApply) {
+        // First send the state, then execute the content script
+        sendStateToTab(tabId, true);
         chrome.scripting.executeScript({
             target: { tabId },
             files: ['content.js']
         });
     } else {
-        // Remove RTL effects if needed
+        // Send disabled state
+        sendStateToTab(tabId, false);
+        // Remove RTL effects
         chrome.scripting.executeScript({
             target: { tabId },
             func: () => {
@@ -59,4 +77,13 @@ async function checkAndApplyRTL(tabId, tab) {
             }
         });
     }
+}
+
+function sendStateToTab(tabId, enabled) {
+    chrome.tabs.sendMessage(tabId, {
+        type: 'EXTENSION_STATE',
+        enabled: enabled
+    }).catch(() => {
+        // Ignore errors when tab doesn't have content script yet
+    });
 }

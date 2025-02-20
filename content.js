@@ -167,20 +167,20 @@
             isEnabled = request.enabled;
             if (!isEnabled) {
                 cleanupRTL();
-                if (observer) observer.disconnect();
+                if (observer) {
+                    observer.disconnect();
+                    observer = null;
+                }
             } else {
                 updateTextDirections();
-                initObserver();
+                if (!observer) {
+                    initObserver();
+                }
             }
         }
     });
 
-    // Initial setup
-    chrome.storage.sync.get(['enabled'], (result) => {
-        isEnabled = result.enabled !== false;
-        if (isEnabled) {
-            updateTextDirections();
-            initObserver();
-        }
-    });
+    // Instead of checking storage on load, wait for the background script to send the state
+    // Remove the initial storage check
+    // The background script will send the correct state for this tab
 })();
