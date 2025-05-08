@@ -4,128 +4,138 @@
     let observer;
 
     function countWords(text) {
-        if (!text.trim()) return { arabic: 0, other: 0, total: 0 };
+        if (!text.trim()) return { arabic: 0, english: 0, ratio: 0 };
 
         const arabicPattern = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
-        const latinPattern = /[a-zA-Z]/;
+        const englishPattern = /[a-zA-Z]/;
         
         const words = text.split(/\s+/);
         let arabicCount = 0;
-        let latinCount = 0;
-        let currentArabicSequence = 0;
-        let currentLatinSequence = 0;
-        let maxArabicSequence = 0;
-        let maxLatinSequence = 0;
+        let englishCount = 0;
 
         words.forEach(word => {
             if (!word.trim()) return;
-            
             const firstChar = word[0];
-            const isArabicWord = arabicPattern.test(firstChar);
-            const isLatinWord = latinPattern.test(firstChar);
-
-            if (isArabicWord) {
+            if (arabicPattern.test(firstChar)) {
                 arabicCount++;
-                currentArabicSequence++;
-                currentLatinSequence = 0;
-                maxArabicSequence = Math.max(maxArabicSequence, currentArabicSequence);
-            } else if (isLatinWord) {
-                latinCount++;
-                currentLatinSequence++;
-                currentArabicSequence = 0;
-                maxLatinSequence = Math.max(maxLatinSequence, currentLatinSequence);
+            } else if (englishPattern.test(firstChar)) {
+                englishCount++;
             }
         });
 
         return {
             arabic: arabicCount,
-            other: latinCount,
-            total: words.length,
-            maxArabicSequence,
-            maxLatinSequence
+            english: englishCount,
+            ratio: englishCount > 0 ? arabicCount / englishCount : arabicCount > 0 ? Infinity : 0
         };
     }
 
-    function determineDirection(element) {
-        if (TEXT_DIRECTION_CACHE.has(element)) {
-            return TEXT_DIRECTION_CACHE.get(element);
+    function findDeepestTextNodes(element) {
+        const textNodes = [];
+        const walker = document.createTreeWalker(
+            element,
+            NodeFilter.SHOW_TEXT,
+            {
+                acceptNode: function(node) {
+                    return node.textContent.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+                }
+            },
+            false
+        );
+
+        let node;
+        while (node = walker.nextNode()) {
+            textNodes.push(node);
         }
 
-        let allText = '';
-        if (element.tagName.toLowerCase() === 'ul' || element.tagName.toLowerCase() === 'ol') {
-            allText = element.textContent;
-        } else {
-            const walker = document.createTreeWalker(
-                element,
-                NodeFilter.SHOW_TEXT,
-                null,
-                false
-            );
+        return textNodes;
+    }
 
-            let node;
-            while (node = walker.nextNode()) {
-                allText += node.textContent + ' ';
+    function getDirectParent(node) {
+        let parent = node.parentElement;
+        while (parent && parent !== document.body) {
+            const display = window.getComputedStyle(parent).display;
+            if (display.includes('block') || display === 'flex' || display === 'grid') {
+                return parent;
+            }
+            parent = parent.parentElement;
+        }
+        return null;
+    }
+
+    function handleListElement(listElement) {
+        if (TEXT_DIRECTION_CACHE.has(listElement)) {
+            return TEXT_DIRECTION_CACHE.get(listElement);
+        }
+
+        const arabicPattern = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/;
+        const listItems = Array.from(listElement.children);
+
+        for (const item of listItems) {
+            const textNodes = findDeepestTextNodes(item);
+            for (const textNode of textNodes) {
+                const text = textNode.textContent.trim();
+                if (text && arabicPattern.test(text[0])) {
+                    TEXT_DIRECTION_CACHE.set(listElement, true);
+                    return true;
+                }
             }
         }
-
-        const { arabic, other, total, maxArabicSequence, maxLatinSequence } = countWords(allText);
         
-        if (total === 0) return null;
-
-        const arabicRatio = arabic / total;
-        const direction = (maxArabicSequence >= 2 && arabicRatio >= 0.3) ? 'rtl' : null;
-
-        TEXT_DIRECTION_CACHE.set(element, direction);
-        return direction;
+        TEXT_DIRECTION_CACHE.set(listElement, false);
+        return false;
     }
 
     function updateTextDirections() {
         if (!isEnabled) return;
 
-        const textElements = document.querySelectorAll('*');
-        const processedParents = new Set();
-
-        textElements.forEach(element => {
-            if (!element.textContent.trim()) return;
-            
-            let parent = element.parentElement;
-            while (parent && parent !== document.body) {
-                const display = window.getComputedStyle(parent).display;
-                if (display.includes('block') || display === 'flex' || display === 'grid' || parent.tagName.toLowerCase() === 'ul' || parent.tagName.toLowerCase() === 'ol') {
-                    if (!processedParents.has(parent)) {
-                        processedParents.add(parent);
-                        const direction = determineDirection(parent);
-                        
-                        if (direction === 'rtl') {
-                            parent.setAttribute('dir', 'rtl');
-                            const preTags = parent.querySelectorAll('pre');
-                            preTags.forEach(pre => {
-                                pre.setAttribute('dir', 'ltr');
-                            });
-                        } else {
-                            parent.removeAttribute('dir');
-                            const preTags = parent.querySelectorAll('pre');
-                            preTags.forEach(pre => {
-                                pre.removeAttribute('dir');
-                            });
-                        }
-                    }
-                    break;
-                }
-                parent = parent.parentElement;
+        // Handle headings first - set RTL if contains any Arabic text
+        document.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach(heading => {
+            const hasArabic = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(heading.textContent);
+            if (hasArabic) {
+                heading.setAttribute('dir', 'rtl');
+            } else {
+                heading.removeAttribute('dir');
             }
         });
 
-        const preTags = document.querySelectorAll('pre');
-        preTags.forEach(pre => {
-            let ancestor = pre.parentElement;
-            while (ancestor && ancestor !== document.body) {
-                if (ancestor.getAttribute('dir') === 'rtl') {
-                    pre.setAttribute('dir', 'ltr');
-                    break;
-                }
-                ancestor = ancestor.parentElement;
+        // Handle lists (ul/ol)
+        document.querySelectorAll('ul, ol').forEach(listElement => {
+            if (handleListElement(listElement)) {
+                listElement.setAttribute('dir', 'rtl');
+            } else {
+                listElement.removeAttribute('dir');
             }
+        });
+
+        // Process all other elements
+        const processedParents = new Set();
+        document.body.childNodes.forEach(node => {
+            if (node.nodeType === Node.ELEMENT_NODE) {
+                const textNodes = findDeepestTextNodes(node);
+                
+                textNodes.forEach(textNode => {
+                    const directParent = getDirectParent(textNode);
+                    if (directParent && !processedParents.has(directParent)) {
+                        if (directParent.tagName.toLowerCase() !== 'ul' && 
+                            directParent.tagName.toLowerCase() !== 'ol') {
+                            
+                            const { ratio } = countWords(textNode.textContent);
+                            if (ratio >= 1.5) {
+                                directParent.setAttribute('dir', 'rtl');
+                            } else {
+                                directParent.removeAttribute('dir');
+                            }
+                            processedParents.add(directParent);
+                        }
+                    }
+                });
+            }
+        });
+
+        // Ensure pre tags are always LTR
+        document.querySelectorAll('pre').forEach(pre => {
+            pre.setAttribute('dir', 'ltr');
         });
     }
 
@@ -149,9 +159,7 @@
         observer.observe(document.body, {
             childList: true,
             subtree: true,
-            characterData: true,
-            attributes: true,
-            attributeFilter: ['dir']
+            characterData: true
         });
     }
 
@@ -161,7 +169,10 @@
         TEXT_DIRECTION_CACHE = new WeakMap();
     }
 
-    // Extension state management
+    // Initialize immediately
+    updateTextDirections();
+    initObserver();
+
     chrome.runtime.onMessage.addListener((request) => {
         if (request.type === 'EXTENSION_STATE') {
             isEnabled = request.enabled;
@@ -179,8 +190,4 @@
             }
         }
     });
-
-    // Instead of checking storage on load, wait for the background script to send the state
-    // Remove the initial storage check
-    // The background script will send the correct state for this tab
 })();
