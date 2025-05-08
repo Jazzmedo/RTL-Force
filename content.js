@@ -89,10 +89,15 @@
     function updateTextDirections() {
         if (!isEnabled) return;
 
-        // Handle headings first - set RTL if contains any Arabic text
+        // Handle headings first - set RTL if contains any Arabic text in deepest text nodes
         document.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach(heading => {
-            const hasArabic = /[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]/.test(heading.textContent);
-            if (hasArabic) {
+            const textNodes = findDeepestTextNodes(heading);
+            let totalText = '';
+            textNodes.forEach(node => {
+                totalText += node.textContent.trim() + ' ';
+            });
+            const { arabic } = countWords(totalText);
+            if (arabic > 0) {
                 heading.setAttribute('dir', 'rtl');
             } else {
                 heading.removeAttribute('dir');
