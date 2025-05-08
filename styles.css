@@ -1,0 +1,328 @@
+:root {
+    --bg-color: #f5f5f5;
+    --container-bg: white;
+    --text-color: #333;
+    --border-color: #ddd;
+    --button-bg: #4CAF50;
+    --button-text: white;
+    --save-button-bg: #2196F3;
+    --mode-bg: #f8f8f8;
+    --sb-bg: #f1f1f1;
+    --sb-fg: #c1c1c1;
+    --sb-fga: #a8a8a8;
+}
+
+[data-theme="dark"] {
+    --bg-color: #1a1a1a;
+    --container-bg: #2d2d2d;
+    --text-color: #ffffff;
+    --border-color: #404040;
+    --button-bg: #45a049;
+    --button-text: white;
+    --save-button-bg: #1976D2;
+    --mode-bg: #363636;
+    --sb-bg: #3e3e3e;
+    --sb-fg: #181818;
+    --sb-fga: #222222;
+}
+
+/* Firefox (uncomment to work in Firefox, although other properties will not work!)  */
+/** {
+scrollbar-width: thin;
+scrollbar-color: #C1C1C1 #F1F1F1;
+}*/
+
+/* For modern browsers */
+::selection {
+    background-color: #b9b9b9;
+    color: #1b1b1b;
+    text-shadow: none;
+    /* Optional: Remove text shadow */
+}
+
+/* For Firefox */
+::-moz-selection {
+    background-color: #b9b9b9;
+    color: #1b1b1b;
+    text-shadow: none;
+}
+
+/* Chrome, Edge and Safari */
+*::-webkit-scrollbar {
+    height: 8px;
+    width: 8px;
+}
+
+*::-webkit-scrollbar-track {
+    border-radius: 3px;
+    background-color: var(--sb-bg);
+}
+
+*::-webkit-scrollbar-track:hover {
+    background-color: var(--sb-bg);
+}
+
+*::-webkit-scrollbar-track:active {
+    background-color: var(--sb-bg);
+}
+
+*::-webkit-scrollbar-thumb {
+    border-radius: 3px;
+    background-color: var(--sb-fg);
+    cursor: default;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+    background-color: var(--sb-fga);
+    cursor: default;
+}
+
+*::-webkit-scrollbar-thumb:active {
+    background-color: var(--sb-fga);
+}
+
+* {
+    font-family: 'ADLaM Display', sans-serif;
+}
+
+textarea:focus {
+    outline: none;
+}
+
+body {
+    font-family: 'Roboto', sans-serif;
+    margin: 0;
+    background: var(--bg-color);
+    color: var(--text-color);
+    transition: all 0.3s ease;
+}
+
+.container {
+    width: 350px;
+    background: var(--container-bg);
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    padding: 0 20px 20px 20px;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.theme-toggle {
+    color: var(--text-color);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.theme-toggle:hover {
+    background: var(--mode-bg);
+}
+
+.theme-toggle svg {
+    width: 20px;
+    height: 20px;
+    fill: var(--text-color);
+    transition: all 0.3s ease;
+}
+
+.theme-toggle .sun {
+    opacity: 1;
+    transform: scale(1) rotate(0);
+}
+
+.theme-toggle .moon {
+    position: absolute;
+    opacity: 0;
+    transform: scale(0.5) rotate(-90deg);
+}
+
+[data-theme="dark"] .theme-toggle .sun {
+    opacity: 0;
+    transform: scale(0.5) rotate(90deg);
+}
+
+[data-theme="dark"] .theme-toggle .moon {
+    opacity: 1;
+    transform: scale(1) rotate(0);
+}
+
+.buttons-container {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+button {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: 500;
+}
+
+#add-to-list {
+    background: var(--button-bg);
+    color: var(--button-text);
+    flex: 1;
+}
+
+#save-list {
+    background: var(--save-button-bg);
+    color: var(--button-text);
+    flex: 1;
+}
+
+button:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+}
+
+.mode-selector {
+    display: flex;
+    gap: 30px;
+    padding: 10px;
+    background: var(--mode-bg);
+    border-radius: 4px;
+    justify-content: center;
+}
+
+.mode-selector label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+.list {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+}
+
+.list h2 {
+    color: #666;
+    font-size: 1.1em;
+    margin-bottom: 10px;
+}
+
+#domain-list {
+    color: var(--text-color);
+    background: var(--container-bg);
+    width: 100%;
+    height: 150px;
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-family: 'Roboto', sans-serif;
+    line-height: 1.5;
+    resize: none;
+    overflow: auto;
+    font-family: 'ADLaM Display', sans-serif;
+}
+
+.status {
+    margin-top: 10px;
+    text-align: center;
+    color: #666;
+    font-size: 0.9em;
+    height: 20px;
+}
+
+.toggle-switch {
+    display: flex;
+    align-items: center;
+    justify-content: space-evenly;
+    gap: 10px;
+    margin-bottom: 20px;
+    padding: 10px;
+    background: var(--mode-bg);
+    border-radius: 4px;
+}
+
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 24px;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+    border-radius: 24px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+input:checked+.slider {
+    background-color: var(--button-bg);
+}
+
+input:checked+.slider:before {
+    transform: translateX(26px);
+}
+
+.controls-container {
+    transition: filter 0.3s ease;
+}
+
+.controls-container.disabled {
+    filter: blur(2px);
+    pointer-events: none;
+    opacity: 0.7;
+}
+
+.flex {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.crafted {
+    color: var(--text-color);
+    font-size: 12px;
+    text-align: center;
+    margin-top: 10px;
+    font-weight: 500;
+    padding: 0;
+    margin: 0;
+}
