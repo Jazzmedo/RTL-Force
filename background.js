@@ -35,11 +35,17 @@ chrome.storage.onChanged.addListener((changes) => {
 });
 
 async function checkAndApplyRTL(tabId, tab) {
-    const { enabled } = await chrome.storage.sync.get('enabled');
-    if (!enabled) {
-        sendStateToTab(tabId, false);
-        return;
-    }
+    try {
+        // Skip processing for restricted URLs
+        if (!tab.url || tab.url.startsWith('chrome://') || tab.url.startsWith('edge://') || tab.url.startsWith('about:')) {
+            return;
+        }
+
+        const { enabled } = await chrome.storage.sync.get('enabled');
+        if (!enabled) {
+            await sendStateToTab(tabId, false);
+            return;
+        }
 
     const { mode, blacklist, whitelist } = await chrome.storage.sync.get([
         'mode',
@@ -66,24 +72,49 @@ async function checkAndApplyRTL(tabId, tab) {
         });
     } else {
         // Send disabled state
-        sendStateToTab(tabId, false);
-        // Remove RTL effects
-        chrome.scripting.executeScript({
-            target: { tabId },
-            func: () => {
-                document.querySelectorAll('[dir="rtl"]').forEach(el => {
-                    el.removeAttribute('dir');
+        await sendStateToTab(tabId, false);
+        // Remove RTL effects if URL is accessible
+        if (!tab.url.startsWith('chrome://')) {
+            try {
+                await chrome.scripting.executeScript({
+                    target: { tabId },
+                    func: () => {
+                        document.querySelectorAll('[dir="rtl"]').forEach(el => {
+                            el.removeAttribute('dir');
+                        });
+                    }
                 });
+            } catch (error) {
+                console.debug(`Failed to execute script on tab ${tabId}:`, error.message);
             }
-        });
+        }
+    }
+    } catch (error) {
+        console.debug(`Error in checkAndApplyRTL for tab ${tabId}:`, error.message);
     }
 }
 
-function sendStateToTab(tabId, enabled) {
-    chrome.tabs.sendMessage(tabId, {
-        type: 'EXTENSION_STATE',
-        enabled: enabled
-    }).catch(() => {
-        // Ignore errors when tab doesn't have content script yet
-    });
+async function sendStateToTab(tabId, enabled) {
+    try {
+        // Check if the tab still exists before sending message
+        const tab = await chrome.tabs.get(tabId);
+        if (!tab || !tab.url) return;
+
+        // Skip restricted URLs
+        if (tab.url.startsWith('chrome://') || 
+            tab.url.startsWith('edge://') || 
+            tab.url.startsWith('about:')) {
+            return;
+        }
+
+        await chrome.tabs.sendMessage(tabId, {
+            type: 'EXTENSION_STATE',
+            enabled: enabled
+        });
+    } catch (error) {
+        // Ignore errors when tab doesn't exist or doesn't have content script yet
+        if (!error.message.includes('receiving end does not exist')) {
+            console.debug(`Failed to send state to tab ${tabId}:`, error.message);
+        }
+    }
 }
