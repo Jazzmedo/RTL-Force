@@ -1,6 +1,7 @@
 (() => {
     var TEXT_DIRECTION_CACHE = new WeakMap();
     let isEnabled = true;
+    let rtlMode = false; // false = Text Direction mode (default), true = HTML Dir Only mode
     let observer;
 
     function countWords(text) {
@@ -88,9 +89,33 @@
 
     function updateTextDirections() {
         if (!isEnabled) return;
+        
+        // If in HTML Dir Only mode, just set the dir attribute on the HTML element
+        if (rtlMode) {
+            document.documentElement.setAttribute('dir', 'rtl');
+            document.documentElement.setAttribute('forcertl', 't');
+            return;
+        }
+
+        // Function to check if element has explicit direction set
+        function hasExplicitDirection(element) {
+            // Check if element or any of its ancestors has explicit RTL direction
+            let currentElement = element;
+            while (currentElement && currentElement !== document.documentElement) {
+                const computedStyle = window.getComputedStyle(currentElement);
+                const dirAttribute = currentElement.getAttribute('dir');
+                if (computedStyle.direction === 'rtl' || dirAttribute === 'rtl') {
+                    return true;
+                }
+                currentElement = currentElement.parentElement;
+            }
+            return false;
+        }
 
         // Handle headings first - set RTL if contains any Arabic text in deepest text nodes
         document.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach(heading => {
+            if (hasExplicitDirection(heading)) return; // Skip if already RTL by default
+            
             const textNodes = findDeepestTextNodes(heading);
             let totalText = '';
             textNodes.forEach(node => {
@@ -99,6 +124,7 @@
             const { arabic } = countWords(totalText);
             if (arabic > 0) {
                 heading.setAttribute('dir', 'rtl');
+                heading.setAttribute('forcertl', 't');
             } else {
                 heading.removeAttribute('dir');
             }
@@ -106,8 +132,11 @@
 
         // Handle lists (ul/ol)
         document.querySelectorAll('ul, ol').forEach(listElement => {
+            if (hasExplicitDirection(listElement)) return; // Skip if already RTL by default
+            
             if (handleListElement(listElement)) {
                 listElement.setAttribute('dir', 'rtl');
+                listElement.setAttribute('forcertl', 't');
             } else {
                 listElement.removeAttribute('dir');
             }
@@ -123,11 +152,13 @@
                     const directParent = getDirectParent(textNode);
                     if (directParent && !processedParents.has(directParent)) {
                         if (directParent.tagName.toLowerCase() !== 'ul' && 
-                            directParent.tagName.toLowerCase() !== 'ol') {
+                            directParent.tagName.toLowerCase() !== 'ol' &&
+                            !hasExplicitDirection(directParent)) { // Skip if already RTL by default
                             
                             const { ratio } = countWords(textNode.textContent);
                             if (ratio >= 1.5) {
                                 directParent.setAttribute('dir', 'rtl');
+                                directParent.setAttribute('forcertl', 't');
                             } else {
                                 directParent.removeAttribute('dir');
                             }
@@ -169,8 +200,16 @@
     }
 
     function cleanupRTL() {
-        document.querySelectorAll('[dir="rtl"]').forEach(el => el.removeAttribute('dir'));
+        document.querySelectorAll('[forcertl="t"]').forEach(el => {
+            el.removeAttribute('dir');
+            el.removeAttribute('forcertl');
+        });
         document.querySelectorAll('[dir="ltr"]').forEach(el => el.removeAttribute('dir'));
+        // Also remove RTL from HTML element if it was set by HTML Dir Only mode
+        if (document.documentElement.getAttribute('forcertl') === 't') {
+            document.documentElement.removeAttribute('dir');
+            document.documentElement.removeAttribute('forcertl');
+        }
         TEXT_DIRECTION_CACHE = new WeakMap();
     }
 
@@ -181,17 +220,100 @@
     chrome.runtime.onMessage.addListener((request) => {
         if (request.type === 'EXTENSION_STATE') {
             isEnabled = request.enabled;
+            rtlMode = request.rtlMode;
+            
+            // 1. First check if extension is enabled
             if (!isEnabled) {
                 cleanupRTL();
                 if (observer) {
                     observer.disconnect();
                     observer = null;
                 }
-            } else {
-                updateTextDirections();
-                if (!observer) {
-                    initObserver();
+                return;
+            }
+            
+            // 2. Check if current site is in whitelist/blacklist
+            if (request.lists) {
+                const hostname = window.location.hostname;
+                const mode = request.mode;
+                const blacklist = request.lists.blacklist || [];
+                const whitelist = request.lists.whitelist || [];
+                
+                const shouldApply = 
+                    (mode === 'blacklist' && !blacklist.includes(hostname)) ||
+                    (mode === 'whitelist' && whitelist.includes(hostname));
+                
+                if (!shouldApply) {
+                    cleanupRTL();
+                    if (observer) {
+                        observer.disconnect();
+                        observer = null;
+                    }
+                    return;
                 }
+            }
+            
+            // 3. Apply the selected direction mode
+            updateTextDirections();
+            // Only initialize observer in Text Direction mode
+            if (!rtlMode && !observer) {
+                initObserver();
+            } else if (rtlMode && observer) {
+                // Disconnect observer in HTML Dir Only mode
+                observer.disconnect();
+                observer = null;
+            }
+        }
+    });
+    
+    // Also listen for STATE_UPDATE messages from popup.js
+    chrome.runtime.onMessage.addListener((request) => {
+        if (request.type === 'STATE_UPDATE') {
+            rtlMode = request.rtlMode;
+            isEnabled = request.enabled;
+            
+            // First check if extension is enabled
+            if (!isEnabled) {
+                cleanupRTL();
+                if (observer) {
+                    observer.disconnect();
+                    observer = null;
+                }
+                return;
+            }
+            
+            // Then check whitelist/blacklist status
+            if (request.lists) {
+                const hostname = window.location.hostname;
+                const mode = request.mode;
+                const blacklist = request.lists.blacklist || [];
+                const whitelist = request.lists.whitelist || [];
+                
+                const shouldApply = 
+                    (mode === 'blacklist' && !blacklist.includes(hostname)) ||
+                    (mode === 'whitelist' && whitelist.includes(hostname));
+                
+                if (!shouldApply) {
+                    cleanupRTL();
+                    if (observer) {
+                        observer.disconnect();
+                        observer = null;
+                    }
+                    return;
+                }
+            }
+            
+            // Finally apply the selected direction mode
+            // Clean up previous RTL settings before applying new mode
+            cleanupRTL();
+            updateTextDirections();
+            
+            // Manage observer based on mode
+            if (!rtlMode && !observer) {
+                initObserver();
+            } else if (rtlMode && observer) {
+                observer.disconnect();
+                observer = null;
             }
         }
     });

@@ -11,7 +11,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>Force RTL</h1>
+            <h1 style="font-weight: normal;">Force RTL</h1>
             <div class="flex">
                 <button class="theme-toggle" id="theme-toggle">
                     <svg class="sun" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
@@ -35,6 +35,14 @@
             </label>
         </div>
         <div class="controls-container" id="controls">
+            <div class="toggle-switch">
+                <span>Text Only</span>
+                <label class="switch">
+                    <input type="checkbox" id="rtl-mode" />
+                    <span class="slider"></span>
+                </label>
+                <span>Whole Direction</span>
+            </div>
             <div class="buttons-container">
                 <button id="add-to-list">Add Current Site</button>
                 <button id="save-list">Save List</button>

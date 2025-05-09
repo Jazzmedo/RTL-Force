@@ -4,7 +4,8 @@ chrome.runtime.onInstalled.addListener(() => {
         mode: 'blacklist',
         blacklist: [],
         whitelist: [],
-        enabled: true
+        enabled: true,
+        rtlMode: false // false = Text Direction mode (default), true = HTML Dir Only mode
     });
 });
 
@@ -95,9 +96,13 @@ async function checkAndApplyRTL(tabId, tab) {
 }
 
 async function sendStateToTab(tabId, enabled) {
+    // Get the rtlMode setting and list information
+    const { rtlMode, mode, blacklist, whitelist } = await chrome.storage.sync.get(['rtlMode', 'mode', 'blacklist', 'whitelist']);
     try {
         // Check if the tab still exists before sending message
         const tab = await chrome.tabs.get(tabId);
+        
+        // Send the state with rtlMode information to the tab
         if (!tab || !tab.url) return;
 
         // Skip restricted URLs
@@ -109,7 +114,13 @@ async function sendStateToTab(tabId, enabled) {
 
         await chrome.tabs.sendMessage(tabId, {
             type: 'EXTENSION_STATE',
-            enabled: enabled
+            enabled: enabled,
+            rtlMode: rtlMode,
+            mode: mode,
+            lists: {
+                blacklist: blacklist || [],
+                whitelist: whitelist || []
+            }
         });
     } catch (error) {
         // Ignore errors when tab doesn't exist or doesn't have content script yet

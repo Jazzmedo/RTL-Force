@@ -7,9 +7,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const themeToggle = document.getElementById('theme-toggle');
     const extensionToggle = document.getElementById('extension-toggle');
     const controlsContainer = document.getElementById('controls');
+    const rtlModeToggle = document.getElementById('rtl-mode');
 
     // Initialize UI with stored settings
-    chrome.storage.sync.get(['mode', 'blacklist', 'whitelist', 'theme', 'enabled'], (data) => {
+    chrome.storage.sync.get(['mode', 'blacklist', 'whitelist', 'theme', 'enabled', 'rtlMode'], (data) => {
         // Set mode selection
         document.querySelector(`input[name="mode"][value="${data.mode || 'blacklist'}"]`).checked = true;
         
@@ -25,6 +26,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Set extension toggle state
         extensionToggle.checked = data.enabled !== false;
         controlsContainer.classList.toggle('disabled', !extensionToggle.checked);
+        
+        // Set RTL mode toggle state (default to text direction mode - unchecked)
+        rtlModeToggle.checked = data.rtlMode === true;
         
         // Update button text based on current site
         updateButtonText();
@@ -99,6 +103,15 @@ document.addEventListener('DOMContentLoaded', () => {
             broadcastState();
         });
     });
+    
+    // RTL mode toggle (HTML dir only vs Text Direction)
+    rtlModeToggle.addEventListener('change', () => {
+        const rtlMode = rtlModeToggle.checked;
+        chrome.storage.sync.set({ rtlMode: rtlMode }, () => {
+            showStatus(`Mode set to ${rtlMode ? 'Whole Page' : 'Text Only'}`);
+            broadcastState();
+        });
+    });
 
     // Status message helper
     function showStatus(message, duration = 2000) {
@@ -125,7 +138,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Broadcast state changes to all tabs
     function broadcastState() {
-        chrome.storage.sync.get(['enabled', 'mode', 'blacklist', 'whitelist'], (data) => {
+        chrome.storage.sync.get(['enabled', 'mode', 'blacklist', 'whitelist', 'rtlMode'], (data) => {
             chrome.tabs.query({}, (tabs) => {
                 tabs.forEach(tab => {
                     if (tab.id) {
@@ -133,6 +146,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             type: 'STATE_UPDATE',
                             enabled: data.enabled,
                             mode: data.mode,
+                            rtlMode: data.rtlMode,
                             lists: {
                                 blacklist: data.blacklist || [],
                                 whitelist: data.whitelist || []
